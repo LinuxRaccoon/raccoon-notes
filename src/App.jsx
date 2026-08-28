@@ -202,6 +202,12 @@ function RaccoonApp() {
               Raccoon Notes
             </span>
           </div>
+          <button
+            className="toolbar-btn mobile-only"
+            onClick={() => setMobileView("list")}
+          >
+            ✕
+          </button>
         </div>
 
         <div style={{ padding: "6px 10px", flex: 1, overflowY: "auto" }}>
@@ -272,10 +278,18 @@ function RaccoonApp() {
 
       {/* LIST */}
       <div className={`col list-pane ${mobileView === "list" ? "" : "mob-hide"}`}>
-        <div style={{ padding: "14px 12px 0", fontWeight: 700, fontSize: 13.5 }}>
-          {selectedFolder === null
-            ? "All Notes"
-            : folders.find((f) => f.id === selectedFolder)?.name}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 12px 0" }}>
+          <button
+            className="toolbar-btn mobile-only"
+            onClick={() => setMobileView("folders")}
+          >
+            ☰
+          </button>
+          <span style={{ fontWeight: 700, fontSize: 13.5 }}>
+            {selectedFolder === null
+              ? "All Notes"
+              : folders.find((f) => f.id === selectedFolder)?.name}
+          </span>
         </div>
         <div className="search-box">
           <input
