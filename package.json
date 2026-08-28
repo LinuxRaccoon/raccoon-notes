@@ -11,6 +11,7 @@
     "db:migrate": "netlify database migrations apply"
   },
   "dependencies": {
+    "@clerk/backend": "^3.16.12",
     "@clerk/clerk-react": "^5.7.0",
     "@netlify/database": "^1.0.0",
     "drizzle-orm": "^1.0.0-beta.22",
