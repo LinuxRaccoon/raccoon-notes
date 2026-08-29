@@ -44,12 +44,22 @@ function PawIcon({ size = 14 }) {
 function RaccoonMark({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <ellipse cx="20" cy="22" rx="13" ry="11" className="mark-fur" />
-      <path d="M9 16 Q6 8 12 6 Q11 12 14 15Z" className="mark-fur" />
-      <path d="M31 16 Q34 8 28 6 Q29 12 26 15Z" className="mark-fur" />
-      <path d="M9 20 Q20 26 31 20 Q28 27 20 28 Q12 27 9 20Z" className="mark-mask" />
-      <circle cx="15.5" cy="20.5" r="1.6" fill="var(--bg-app)" />
-      <circle cx="24.5" cy="20.5" r="1.6" fill="var(--bg-app)" />
+      {/* ears */}
+      <circle cx="10" cy="11" r="5.5" className="mark-fur" />
+      <circle cx="30" cy="11" r="5.5" className="mark-fur" />
+      <circle cx="10" cy="11" r="2.6" className="mark-mask" />
+      <circle cx="30" cy="11" r="2.6" className="mark-mask" />
+      {/* head */}
+      <ellipse cx="20" cy="23" rx="13.5" ry="12" className="mark-fur" />
+      {/* mask band */}
+      <path d="M8 20 Q20 15 32 20 Q30 27 20 28 Q10 27 8 20Z" className="mark-mask" />
+      {/* eyes */}
+      <ellipse cx="15.5" cy="21" rx="2.6" ry="3" fill="var(--bg-app)" />
+      <ellipse cx="24.5" cy="21" rx="2.6" ry="3" fill="var(--bg-app)" />
+      <circle cx="15.5" cy="21.5" r="1.2" className="mark-mask" />
+      <circle cx="24.5" cy="21.5" r="1.2" className="mark-mask" />
+      {/* nose */}
+      <ellipse cx="20" cy="27.5" rx="1.8" ry="1.3" className="mark-mask" />
     </svg>
   );
 }
@@ -356,7 +366,25 @@ function RaccoonApp() {
               >
                 ← Back
               </button>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
+                  value={selectedNote.folderId ?? ""}
+                  onChange={(e) =>
+                    updateNoteLocal(
+                      "folderId",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
+                  }
+                  className="toolbar-btn"
+                  style={{ paddingRight: 6 }}
+                >
+                  <option value="">No folder</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
                 <button
                   className={`toolbar-btn ${!preview ? "active" : ""}`}
                   onClick={() => setPreview(false)}
