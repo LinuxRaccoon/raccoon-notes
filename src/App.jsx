@@ -465,11 +465,49 @@ export default function App() {
       <SignedOut>
         <div
           style={{
-            display: "flex", justifyContent: "center", alignItems: "center",
-            minHeight: "100vh", background: "#F7F4EE",
+            display: "flex",
+            minHeight: "100dvh",
+            background: "#F7F4EE",
+            flexWrap: "wrap",
           }}
         >
-          <SignIn routing="hash" />
+          <div
+            style={{
+              flex: "1 1 480px",
+              minHeight: 280,
+              backgroundImage: "url(/raccoon-hero.png)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          <div
+            style={{
+              flex: "1 1 380px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px 20px",
+              gap: 20,
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  fontFamily: "Georgia, serif",
+                  fontWeight: 700,
+                  fontSize: 26,
+                  color: "#26241F",
+                }}
+              >
+                🦝 Raccoon Notes
+              </div>
+              <div style={{ color: "#7C7669", fontSize: 14, marginTop: 4 }}>
+                Notes, tidied into dens.
+              </div>
+            </div>
+            <SignIn routing="hash" />
+          </div>
         </div>
       </SignedOut>
       <SignedIn>
