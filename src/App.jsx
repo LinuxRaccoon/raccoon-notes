@@ -43,34 +43,13 @@ function PawIcon({ size = 14 }) {
 
 function RaccoonMark({ size = 32 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      {/* ears — slightly pointed, not round */}
-      <path d="M6 14 Q5 5 14 8 Q11 12 11 16Z" className="mark-fur" />
-      <path d="M34 14 Q35 5 26 8 Q29 12 29 16Z" className="mark-fur" />
-      <path d="M8 13 Q8 8 13 9.5 Q11 12 11.5 14.5Z" className="mark-mask" />
-      <path d="M32 13 Q32 8 27 9.5 Q29 12 28.5 14.5Z" className="mark-mask" />
-
-      {/* wide head */}
-      <ellipse cx="20" cy="23" rx="14.5" ry="12" className="mark-fur" />
-
-      {/* light snout patch */}
-      <ellipse cx="20" cy="29" rx="7.5" ry="6.5" fill="#FFFFFF" opacity="0.5" />
-
-      {/* bandit mask */}
-      <path
-        d="M6.5 18 Q13 12.5 20 15 Q27 12.5 33.5 18 Q31 26 24.5 25.5 Q22 22.5 20 22.5 Q18 22.5 15.5 25.5 Q9 26 6.5 18Z"
-        className="mark-mask"
-      />
-
-      {/* eyes */}
-      <ellipse cx="15" cy="19.5" rx="2.4" ry="2.8" fill="var(--bg-app)" />
-      <ellipse cx="25" cy="19.5" rx="2.4" ry="2.8" fill="var(--bg-app)" />
-      <circle cx="15" cy="20" r="1.1" className="mark-mask" />
-      <circle cx="25" cy="20" r="1.1" className="mark-mask" />
-
-      {/* nose */}
-      <ellipse cx="20" cy="27" rx="2" ry="1.5" className="mark-mask" />
-    </svg>
+    <img
+      src="/raccoon-icon.png"
+      alt="Raccoon Notes"
+      width={size}
+      height={size}
+      style={{ display: "block" }}
+    />
   );
 }
 
