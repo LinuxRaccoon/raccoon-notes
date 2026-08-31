@@ -27,9 +27,10 @@ export default defineConfig({
           },
         ],
       },
-      // Only precache the app shell (JS/CSS/HTML) — never the notes API.
-      // Notes always come from a live network request, matching the
-      // no-offline-editing decision made earlier.
+      // Precache the app shell (JS/CSS/HTML) so the app itself opens
+      // offline. Notes/folders data is never precached here — that's
+      // handled separately by the localStorage cache + sync queue in
+      // src/lib, which is what makes the phone usable with no signal.
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
         navigateFallbackDenylist: [/^\/\.netlify\/functions\//],

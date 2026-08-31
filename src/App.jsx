@@ -7,6 +7,8 @@ import {
   useAuth,
 } from "@clerk/clerk-react";
 import { api } from "./lib/api.js";
+import { offlineStore } from "./lib/offlineStore.js";
+import { syncPendingOps } from "./lib/sync.js";
 
 // ---- tiny dependency-free markdown-ish renderer ----
 function renderMarkdown(src) {
@@ -53,6 +55,10 @@ function RaccoonMark({ size = 32 }) {
   );
 }
 
+function isTempId(id) {
+  return typeof id === "string" && id.startsWith("local-");
+}
+
 function RaccoonApp() {
   const { getToken } = useAuth();
   const [theme, setTheme] = useState(
@@ -69,29 +75,102 @@ function RaccoonApp() {
   const [addingFolder, setAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [mobileView, setMobileView] = useState("list");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(
+    () => offlineStore.getQueue().length
+  );
+  const [conflicts, setConflicts] = useState([]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("raccoon-theme", theme);
   }, [theme]);
 
+  // keep local notes state and the offline cache mirror in lockstep
+  function commitNotes(updater) {
+    setNotes((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      offlineStore.setNotes(next);
+      return next;
+    });
+  }
+  function commitFolders(updater) {
+    setFolders((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      offlineStore.setFolders(next);
+      return next;
+    });
+  }
+
+  const runSync = useCallback(async () => {
+    if (!navigator.onLine) return;
+    const { conflicts: newConflicts } = await syncPendingOps(getToken, {
+      onNoteSynced: ({ tempId, serverNote }) => {
+        commitNotes((prev) => {
+          if (tempId) {
+            return prev.map((n) => (n.id === tempId ? serverNote : n));
+          }
+          return prev.map((n) => (n.id === serverNote.id ? serverNote : n));
+        });
+        setSelectedNoteId((cur) => (cur === tempId ? serverNote.id : cur));
+      },
+      onNoteRemoved: (id) => {
+        commitNotes((prev) => prev.filter((n) => n.id !== id));
+      },
+    });
+    setConflicts(newConflicts);
+    setPendingCount(offlineStore.getQueue().length);
+  }, [getToken]);
+
+  // initial load — from the server when online, from the local cache when not
   useEffect(() => {
     (async () => {
-      try {
-        const [f, n] = await Promise.all([
-          api.listFolders(getToken),
-          api.listNotes(getToken),
-        ]);
-        setFolders(f);
-        setNotes(n);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+      if (navigator.onLine) {
+        try {
+          const [f, n] = await Promise.all([
+            api.listFolders(getToken),
+            api.listNotes(getToken),
+          ]);
+          setFolders(f);
+          setNotes(n);
+          offlineStore.setFolders(f);
+          offlineStore.setNotes(n);
+        } catch (e) {
+          setError(e.message);
+          setFolders(offlineStore.getFolders());
+          setNotes(offlineStore.getNotes());
+        }
+      } else {
+        setFolders(offlineStore.getFolders());
+        setNotes(offlineStore.getNotes());
       }
+      setLoading(false);
+      runSync();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // online/offline + tab-refocus triggers for syncing
+  useEffect(() => {
+    function goOnline() {
+      setIsOnline(true);
+      runSync();
+    }
+    function goOffline() {
+      setIsOnline(false);
+    }
+    function handleVisibility() {
+      if (document.visibilityState === "visible" && navigator.onLine) runSync();
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [runSync]);
 
   const visibleNotes = useMemo(() => {
     return notes
@@ -106,7 +185,7 @@ function RaccoonApp() {
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId) || null;
 
-  // debounced save so we're not firing a PATCH on every keystroke
+  // debounced save for the always-online path — unchanged from before
   const saveTimers = useRef({});
   const scheduleSave = useCallback(
     (id, patch) => {
@@ -122,38 +201,116 @@ function RaccoonApp() {
     [getToken]
   );
 
+  function queueOrSaveUpdate(id, patch) {
+    if (isTempId(id)) {
+      // not yet created on the server — fold the edit straight into
+      // the pending "create" op instead of a separate update
+      const createOp = offlineStore
+        .getQueue()
+        .find((o) => o.type === "create" && o.tempId === id);
+      if (createOp) {
+        offlineStore.updateOp(createOp.id, {
+          payload: { ...createOp.payload, ...patch },
+        });
+      }
+      return;
+    }
+
+    if (navigator.onLine) {
+      scheduleSave(id, patch);
+      return;
+    }
+
+    // offline — queue it, merging into any existing pending edit for this note
+    const queue = offlineStore.getQueue();
+    const existing = queue.find((o) => o.type === "update" && o.noteId === id);
+    if (existing) {
+      offlineStore.updateOp(existing.id, {
+        payload: { ...existing.payload, ...patch },
+      });
+    } else {
+      const note = offlineStore.getNotes().find((n) => n.id === id);
+      offlineStore.addOp({
+        type: "update",
+        noteId: id,
+        baseUpdatedAt: note?.updatedAt ?? null,
+        payload: { ...patch },
+      });
+    }
+    setPendingCount(offlineStore.getQueue().length);
+  }
+
   function updateNoteLocal(field, value) {
-    setNotes((prev) =>
+    commitNotes((prev) =>
       prev.map((n) => (n.id === selectedNoteId ? { ...n, [field]: value } : n))
     );
-    scheduleSave(selectedNoteId, { [field]: value });
+    queueOrSaveUpdate(selectedNoteId, { [field]: value });
   }
 
   async function createNote() {
-    try {
-      const created = await api.createNote(getToken, {
-        folderId: selectedFolder,
-        title: "",
-        body: "",
-        isMarkdown: true,
-      });
-      setNotes((prev) => [created, ...prev]);
-      setSelectedNoteId(created.id);
-      setPreview(false);
-      setMobileView("editor");
-    } catch (e) {
-      setError(e.message);
+    const payload = {
+      folderId: selectedFolder,
+      title: "",
+      body: "",
+      isMarkdown: true,
+    };
+
+    if (navigator.onLine) {
+      try {
+        const created = await api.createNote(getToken, payload);
+        commitNotes((prev) => [created, ...prev]);
+        setSelectedNoteId(created.id);
+        setPreview(false);
+        setMobileView("editor");
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
     }
+
+    // offline — create locally, queue it, reconcile the id once synced
+    const tempId = `local-${Date.now()}`;
+    const localNote = { id: tempId, ...payload, updatedAt: new Date().toISOString() };
+    commitNotes((prev) => [localNote, ...prev]);
+    offlineStore.addOp({ type: "create", tempId, payload });
+    setPendingCount(offlineStore.getQueue().length);
+    setSelectedNoteId(tempId);
+    setPreview(false);
+    setMobileView("editor");
   }
 
   async function deleteNote(id) {
-    try {
-      await api.deleteNote(getToken, id);
-      setNotes((prev) => prev.filter((n) => n.id !== id));
+    if (isTempId(id)) {
+      // never made it to the server — just drop it and its pending create
+      const createOp = offlineStore
+        .getQueue()
+        .find((o) => o.type === "create" && o.tempId === id);
+      if (createOp) offlineStore.removeOp(createOp.id);
+      commitNotes((prev) => prev.filter((n) => n.id !== id));
       if (selectedNoteId === id) setSelectedNoteId(null);
-    } catch (e) {
-      setError(e.message);
+      setPendingCount(offlineStore.getQueue().length);
+      return;
     }
+
+    if (navigator.onLine) {
+      try {
+        await api.deleteNote(getToken, id);
+        commitNotes((prev) => prev.filter((n) => n.id !== id));
+        if (selectedNoteId === id) setSelectedNoteId(null);
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
+    }
+
+    // offline — a delete supersedes any pending edit for the same note
+    offlineStore.setQueue(
+      offlineStore.getQueue().filter((o) => !(o.type === "update" && o.noteId === id))
+    );
+    offlineStore.addOp({ type: "delete", noteId: id });
+    commitNotes((prev) => prev.filter((n) => n.id !== id));
+    if (selectedNoteId === id) setSelectedNoteId(null);
+    setPendingCount(offlineStore.getQueue().length);
   }
 
   async function commitNewFolder() {
@@ -161,19 +318,55 @@ function RaccoonApp() {
     setNewFolderName("");
     setAddingFolder(false);
     if (!name) return;
+    if (!navigator.onLine) {
+      setError("Folders need a connection — try again once you're back online.");
+      return;
+    }
     try {
       const created = await api.createFolder(getToken, name);
-      setFolders((prev) => [...prev, created]);
+      commitFolders((prev) => [...prev, created]);
     } catch (e) {
       setError(e.message);
     }
   }
 
   async function deleteFolder(id) {
+    if (!navigator.onLine) {
+      setError("Folders need a connection — try again once you're back online.");
+      return;
+    }
     try {
       await api.deleteFolder(getToken, id);
-      setFolders((prev) => prev.filter((f) => f.id !== id));
+      commitFolders((prev) => prev.filter((f) => f.id !== id));
       if (selectedFolder === id) setSelectedFolder(null);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function resolveConflict(conflict, choice) {
+    const { op, serverNote } = conflict;
+    try {
+      if (choice === "mine") {
+        if (serverNote) {
+          const updated = await api.updateNote(getToken, op.noteId, op.payload);
+          commitNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+        } else {
+          // deleted elsewhere — recreate it with your edits
+          const original = offlineStore.getNotes().find((n) => n.id === op.noteId);
+          const created = await api.createNote(getToken, { ...original, ...op.payload });
+          commitNotes((prev) => prev.map((n) => (n.id === op.noteId ? created : n)));
+        }
+      } else if (serverNote) {
+        commitNotes((prev) => prev.map((n) => (n.id === serverNote.id ? serverNote : n)));
+      } else {
+        // server has no version either — it was deleted, so drop it locally too
+        commitNotes((prev) => prev.filter((n) => n.id !== op.noteId));
+        if (selectedNoteId === op.noteId) setSelectedNoteId(null);
+      }
+      offlineStore.removeOp(op.id);
+      setConflicts((prev) => prev.filter((c) => c.op.id !== op.id));
+      setPendingCount(offlineStore.getQueue().length);
     } catch (e) {
       setError(e.message);
     }
@@ -321,7 +514,14 @@ function RaccoonApp() {
                 setMobileView("editor");
               }}
             >
-              <div className="note-title">{n.title || "Untitled"}</div>
+              <div className="note-title">
+                {n.title || "Untitled"}
+                {isTempId(n.id) && (
+                  <span style={{ color: "var(--accent)", fontSize: 11, marginLeft: 6 }}>
+                    ● not synced
+                  </span>
+                )}
+              </div>
               <div className="note-snippet">{(n.body || "").replace(/\n/g, " ").slice(0, 60)}</div>
               <div className="note-date">
                 {n.updatedAt ? new Date(n.updatedAt).toLocaleString() : ""}
@@ -430,6 +630,72 @@ function RaccoonApp() {
           </div>
         )}
       </div>
+
+      {/* OFFLINE / SYNC STATUS */}
+      {(!isOnline || pendingCount > 0) && (
+        <div
+          style={{
+            position: "fixed", bottom: 16, left: 16, background: "var(--bg-surface)",
+            border: "1px solid var(--border)", padding: "8px 14px", borderRadius: 8,
+            fontSize: 12.5, color: "var(--text-secondary)", zIndex: 40,
+          }}
+        >
+          {!isOnline ? "📴 Offline" : "🔄 Syncing"}
+          {pendingCount > 0 ? ` — ${pendingCount} pending` : ""}
+        </div>
+      )}
+
+      {/* CONFLICT RESOLUTION */}
+      {conflicts.length > 0 && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 50, padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--bg-surface)", borderRadius: 12, padding: 24,
+              maxWidth: 420, width: "100%", maxHeight: "80vh", overflowY: "auto",
+            }}
+          >
+            <h3 style={{ marginTop: 0, fontFamily: "Georgia, serif" }}>
+              Sync conflict{conflicts.length > 1 ? "s" : ""}
+            </h3>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              {conflicts.some((c) => !c.serverNote)
+                ? "One or more of these notes changed or were deleted elsewhere while you were offline. Pick what to keep."
+                : "These notes changed elsewhere while you were offline. Pick which version to keep."}
+            </p>
+            {conflicts.map((c) => (
+              <div
+                key={c.op.id}
+                style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, marginBottom: 12 }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  {(c.serverNote?.title || c.op.payload?.title || "Untitled")}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>
+                  Yours: {(c.op.payload.body ?? "").slice(0, 60) || "(no change to text)"}
+                  <br />
+                  {c.serverNote
+                    ? `Server's: ${(c.serverNote.body ?? "").slice(0, 60)}`
+                    : "Server's: (deleted elsewhere)"}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="toolbar-btn active" onClick={() => resolveConflict(c, "mine")}>
+                    Keep mine
+                  </button>
+                  <button className="toolbar-btn" onClick={() => resolveConflict(c, "server")}>
+                    {c.serverNote ? "Keep server's" : "Discard mine"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
