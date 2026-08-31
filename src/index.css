@@ -47,7 +47,18 @@ body {
 
 .col { display: flex; flex-direction: column; min-height: 0; }
 .sidebar { background: var(--bg-surface-2); border-right: 1px solid var(--border); width: 220px; flex-shrink: 0; }
-.list-pane { background: var(--bg-surface); border-right: 1px solid var(--border); width: 300px; flex-shrink: 0; }
+.list-pane { background: var(--bg-surface); border-right: 1px solid var(--border); width: 300px; flex-shrink: 0; position: relative; }
+.list-pane::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url('/raccoon-icon.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 220px;
+  opacity: 0.05;
+  pointer-events: none;
+}
 .editor-pane { background: var(--bg-app); flex: 1; min-width: 0; position: relative; }
 .editor-pane::before {
   content: "";

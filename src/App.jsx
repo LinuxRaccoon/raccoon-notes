@@ -277,7 +277,16 @@ function RaccoonApp() {
 
       {/* LIST */}
       <div className={`col list-pane ${mobileView === "list" ? "" : "mob-hide"}`}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 12px 0" }}>
+        <div
+          className="mobile-only"
+          style={{ alignItems: "center", gap: 8, padding: "14px 12px 0" }}
+        >
+          <RaccoonMark size={26} />
+          <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 16 }}>
+            Raccoon Notes
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 0" }}>
           <button
             className="toolbar-btn mobile-only"
             onClick={() => setMobileView("folders")}
