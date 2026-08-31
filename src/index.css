@@ -52,11 +52,12 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url('/raccoon-icon.png');
+  background-image: url('/raccoon-watermark.png');
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 220px;
-  opacity: 0.05;
+  background-size: 320px;
+  opacity: 0.18;
+  filter: grayscale(1);
   pointer-events: none;
 }
 .editor-pane { background: var(--bg-app); flex: 1; min-width: 0; position: relative; }
@@ -64,11 +65,12 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url('/raccoon-icon.png');
+  background-image: url('/raccoon-watermark.png');
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 320px;
-  opacity: 0.05;
+  background-size: 420px;
+  opacity: 0.18;
+  filter: grayscale(1);
   pointer-events: none;
 }
 
