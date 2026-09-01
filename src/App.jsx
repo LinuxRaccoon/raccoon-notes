@@ -59,10 +59,32 @@ function isTempId(id) {
   return typeof id === "string" && id.startsWith("local-");
 }
 
+const LIGHT_PALETTES = [
+  { id: "amber", label: "Amber", swatch: "#C97A2B" },
+  { id: "slate", label: "Slate", swatch: "#3E6FA6" },
+  { id: "sage", label: "Sage", swatch: "#5B7F4A" },
+  { id: "blush", label: "Blush", swatch: "#C0525A" },
+  { id: "ocean", label: "Ocean", swatch: "#2A8C87" },
+];
+
+const DARK_PALETTES = [
+  { id: "amber", label: "Amber Night", swatch: "#F0A94E" },
+  { id: "midnight", label: "Midnight", swatch: "#6FA1E0" },
+  { id: "forest", label: "Forest", swatch: "#7DBA5E" },
+  { id: "plum", label: "Plum", swatch: "#B37FE0" },
+  { id: "slate", label: "Slate", swatch: "#4FBFC0" },
+];
+
 function RaccoonApp() {
   const { getToken } = useAuth();
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("raccoon-theme") || "light"
+  const [mode, setMode] = useState(
+    () => localStorage.getItem("raccoon-theme-mode") || "light"
+  );
+  const [lightPalette, setLightPalette] = useState(
+    () => localStorage.getItem("raccoon-light-palette") || "amber"
+  );
+  const [darkPalette, setDarkPalette] = useState(
+    () => localStorage.getItem("raccoon-dark-palette") || "amber"
   );
   const [folders, setFolders] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -87,9 +109,13 @@ function RaccoonApp() {
   const cameraInputRef = useRef(null);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("raccoon-theme", theme);
-  }, [theme]);
+    document.documentElement.setAttribute("data-mode", mode);
+    document.documentElement.setAttribute("data-light-palette", lightPalette);
+    document.documentElement.setAttribute("data-dark-palette", darkPalette);
+    localStorage.setItem("raccoon-theme-mode", mode);
+    localStorage.setItem("raccoon-light-palette", lightPalette);
+    localStorage.setItem("raccoon-dark-palette", darkPalette);
+  }, [mode, lightPalette, darkPalette]);
 
   // keep local notes state and the offline cache mirror in lockstep
   function commitNotes(updater) {
@@ -533,12 +559,33 @@ function RaccoonApp() {
           )}
         </div>
 
-        <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           <div
             className="theme-toggle"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            onClick={() => setMode(mode === "light" ? "dark" : "light")}
           >
-            {theme === "light" ? "☀️ Light mode" : "🌙 Dark mode"}
+            {mode === "light" ? "☀️ Light mode" : "🌙 Dark mode"}
+          </div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+            {(mode === "light" ? LIGHT_PALETTES : DARK_PALETTES).map((p) => {
+              const active = (mode === "light" ? lightPalette : darkPalette) === p.id;
+              return (
+                <button
+                  key={p.id}
+                  title={p.label}
+                  onClick={() =>
+                    mode === "light" ? setLightPalette(p.id) : setDarkPalette(p.id)
+                  }
+                  style={{
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: p.swatch, cursor: "pointer", padding: 0,
+                    border: active
+                      ? "2px solid var(--text-primary)"
+                      : "2px solid transparent",
+                  }}
+                />
+              );
+            })}
           </div>
           <UserButton afterSignOutUrl="/" />
         </div>
