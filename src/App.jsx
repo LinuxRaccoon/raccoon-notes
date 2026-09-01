@@ -84,6 +84,7 @@ function RaccoonApp() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -678,12 +679,27 @@ function RaccoonApp() {
                   style={{ display: "none" }}
                   onChange={handlePhotoSelected}
                 />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={handlePhotoSelected}
+                />
+                <button
+                  className="toolbar-btn"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                >
+                  📷 Camera
+                </button>
                 <button
                   className="toolbar-btn"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingPhoto}
                 >
-                  {uploadingPhoto ? "Uploading…" : "📷 Add photo"}
+                  {uploadingPhoto ? "Uploading…" : "🖼️ Gallery"}
                 </button>
               </div>
             </div>

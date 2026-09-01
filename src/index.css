@@ -14,6 +14,8 @@ body {
   --text-secondary: #7C7669;
   --accent: #C97A2B;
   --accent-soft: #F1DCC0;
+  --moss: #5E7A52;
+  --code-color: #A6483C;
   --border: #E6E0D3;
   --mask: #3A3A3E;
   --fur: #B7ADA0;
@@ -27,6 +29,8 @@ body {
   --text-secondary: #9C978C;
   --accent: #F0A94E;
   --accent-soft: #4A3A22;
+  --moss: #8FB07E;
+  --code-color: #E08575;
   --border: #3A362F;
   --mask: #4A4A4E;
   --fur: #5C574C;
@@ -106,10 +110,13 @@ body {
 .body-input { background: transparent; border: none; outline: none; resize: none; color: var(--text-primary); font-size: 14.5px; line-height: 1.6; width: 100%; height: 100%; font-family: ui-monospace, "SF Mono", monospace; }
 
 .md-preview { font-size: 14.5px; line-height: 1.7; }
-.md-h { font-family: Georgia, serif; font-size: 18px; margin: 10px 0 4px; }
+.md-h { font-family: Georgia, serif; font-size: 18px; margin: 10px 0 4px; color: var(--accent); }
 .md-p { margin: 4px 0; }
 .md-li { margin-left: 18px; }
-.md-code { background: var(--bg-surface-2); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 13px; }
+.md-li::marker { color: var(--accent); }
+.md-preview strong { color: var(--accent); }
+.md-preview em { color: var(--moss); font-style: italic; }
+.md-code { background: var(--bg-surface-2); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--code-color); }
 
 .theme-toggle {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; background: var(--bg-surface);
