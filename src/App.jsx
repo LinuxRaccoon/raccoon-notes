@@ -680,14 +680,14 @@ function RaccoonApp() {
       <div className={`col editor-pane ${mobileView === "editor" ? "" : "mob-hide"}`}>
         {selectedNote ? (
           <>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px 8px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px 8px", flexWrap: "wrap", rowGap: 8 }}>
               <button
                 className="toolbar-btn"
                 onClick={() => setMobileView("list")}
               >
                 ← Back
               </button>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
                 <select
                   value={selectedNote.folderId ?? ""}
                   onChange={(e) =>
