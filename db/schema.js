@@ -41,5 +41,7 @@ export const attachments = pgTable("attachments", {
     .notNull(),
   userId: varchar("user_id", { length: 255 }).notNull(),
   blobKey: varchar("blob_key", { length: 500 }).notNull(),
+  filename: varchar({ length: 255 }).notNull().default(""),
+  contentType: varchar("content_type", { length: 100 }).notNull().default("image/jpeg"),
   createdAt: timestamp("created_at").defaultNow(),
 });

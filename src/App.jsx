@@ -80,6 +80,10 @@ function RaccoonApp() {
     () => offlineStore.getQueue().length
   );
   const [conflicts, setConflicts] = useState([]);
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -344,6 +348,77 @@ function RaccoonApp() {
     }
   }
 
+  // load photos for whichever note is selected — skipped for
+  // not-yet-synced notes and while offline, since Blobs always
+  // needs a live connection
+  useEffect(() => {
+    let cancelled = false;
+    const createdUrls = [];
+
+    async function load() {
+      setAttachments([]);
+      if (!selectedNoteId || isTempId(selectedNoteId) || !navigator.onLine) return;
+      try {
+        const rows = await api.listAttachments(getToken, selectedNoteId);
+        const withUrls = await Promise.all(
+          rows.map(async (row) => {
+            const blob = await api.fetchAttachmentBlob(getToken, row.id);
+            const url = URL.createObjectURL(blob);
+            createdUrls.push(url);
+            return { ...row, url };
+          })
+        );
+        if (!cancelled) setAttachments(withUrls);
+      } catch {
+        // photos are secondary — a failure here shouldn't block note editing
+      }
+    }
+    load();
+
+    return () => {
+      cancelled = true;
+      createdUrls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [selectedNoteId, getToken]);
+
+  async function handlePhotoSelected(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    if (isTempId(selectedNoteId)) {
+      setError("This note hasn't synced yet — wait a moment before adding photos.");
+      return;
+    }
+    if (!navigator.onLine) {
+      setError("Photos need a connection to upload — try again once you're back online.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      for (const file of files) {
+        const created = await api.uploadAttachment(getToken, selectedNoteId, file);
+        const blob = await api.fetchAttachmentBlob(getToken, created.id);
+        const url = URL.createObjectURL(blob);
+        setAttachments((prev) => [...prev, { ...created, url }]);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function handleDeletePhoto(attachment) {
+    try {
+      await api.deleteAttachment(getToken, attachment.id);
+      URL.revokeObjectURL(attachment.url);
+      setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
   async function resolveConflict(conflict, choice) {
     const { op, serverNote } = conflict;
     try {
@@ -595,6 +670,21 @@ function RaccoonApp() {
                 >
                   Preview
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={handlePhotoSelected}
+                />
+                <button
+                  className="toolbar-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                >
+                  {uploadingPhoto ? "Uploading…" : "📷 Add photo"}
+                </button>
               </div>
             </div>
 
@@ -620,6 +710,37 @@ function RaccoonApp() {
                   value={selectedNote.body}
                   onChange={(e) => updateNoteLocal("body", e.target.value)}
                 />
+              )}
+
+              {attachments.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+                  {attachments.map((a) => (
+                    <div key={a.id} style={{ position: "relative" }}>
+                      <img
+                        src={a.url}
+                        alt={a.filename}
+                        onClick={() => setLightboxUrl(a.url)}
+                        style={{
+                          width: 84, height: 84, objectFit: "cover",
+                          borderRadius: 8, border: "1px solid var(--border)", cursor: "pointer",
+                        }}
+                      />
+                      <button
+                        onClick={() => handleDeletePhoto(a)}
+                        title="Delete photo"
+                        style={{
+                          position: "absolute", top: -6, right: -6, width: 20, height: 20,
+                          borderRadius: "50%", background: "var(--bg-surface)",
+                          border: "1px solid var(--border)", color: "var(--text-secondary)",
+                          fontSize: 11, cursor: "pointer", display: "flex",
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </>
@@ -694,6 +815,24 @@ function RaccoonApp() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* PHOTO LIGHTBOX */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 60, padding: 20, cursor: "zoom-out",
+          }}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }}
+          />
         </div>
       )}
 

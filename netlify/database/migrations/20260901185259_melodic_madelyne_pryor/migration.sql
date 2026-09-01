@@ -1,0 +1,2 @@
+ALTER TABLE "attachments" ADD COLUMN "filename" varchar(255) DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "attachments" ADD COLUMN "content_type" varchar(100) DEFAULT 'image/jpeg' NOT NULL;

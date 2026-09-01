@@ -44,4 +44,41 @@ export const api = {
     authFetch(getToken, `/.netlify/functions/notes?id=${id}`, {
       method: "DELETE",
     }),
+
+  listAttachments: (getToken, noteId) =>
+    authFetch(getToken, `/.netlify/functions/attachments?noteId=${noteId}`),
+
+  uploadAttachment: async (getToken, noteId, file) => {
+    const token = await getToken();
+    const res = await fetch(
+      `/.netlify/functions/attachments?noteId=${noteId}&filename=${encodeURIComponent(file.name)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${res.statusText}: ${text}`);
+    }
+    return res.json();
+  },
+
+  fetchAttachmentBlob: async (getToken, id) => {
+    const token = await getToken();
+    const res = await fetch(`/.netlify/functions/attachments?id=${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.blob();
+  },
+
+  deleteAttachment: (getToken, id) =>
+    authFetch(getToken, `/.netlify/functions/attachments?id=${id}`, {
+      method: "DELETE",
+    }),
 };
