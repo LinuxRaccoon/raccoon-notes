@@ -117,6 +117,37 @@ function RaccoonApp() {
     localStorage.setItem("raccoon-dark-palette", darkPalette);
   }, [mode, lightPalette, darkPalette]);
 
+  // Hook the mobile "folders"/"editor" screens into the browser's real
+  // history stack, so Android's back gesture (or a hardware back button)
+  // steps back through the app's own screens instead of falling straight
+  // through and closing the app. Only relevant on the mobile single-pane
+  // layout — desktop shows all panes at once, so it's left alone there.
+  const isMobileWidth = () =>
+    window.matchMedia("(max-width: 720px)").matches;
+
+  useEffect(() => {
+    function handlePopState() {
+      setMobileView("list");
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function goToView(view) {
+    if (view !== "list" && isMobileWidth()) {
+      window.history.pushState({ view }, "");
+    }
+    setMobileView(view);
+  }
+
+  function goBackToList() {
+    if (mobileView !== "list" && isMobileWidth()) {
+      window.history.back(); // triggers the popstate handler above
+    } else {
+      setMobileView("list");
+    }
+  }
+
   // keep local notes state and the offline cache mirror in lockstep
   function commitNotes(updater) {
     setNotes((prev) => {
@@ -292,7 +323,7 @@ function RaccoonApp() {
         commitNotes((prev) => [created, ...prev]);
         setSelectedNoteId(created.id);
         setPreview(false);
-        setMobileView("editor");
+        goToView("editor");
       } catch (e) {
         setError(e.message);
       }
@@ -307,7 +338,7 @@ function RaccoonApp() {
     setPendingCount(offlineStore.getQueue().length);
     setSelectedNoteId(tempId);
     setPreview(false);
-    setMobileView("editor");
+    goToView("editor");
   }
 
   async function deleteNote(id) {
@@ -498,7 +529,7 @@ function RaccoonApp() {
           </div>
           <button
             className="toolbar-btn mobile-only"
-            onClick={() => setMobileView("list")}
+            onClick={goBackToList}
           >
             ✕
           </button>
@@ -509,7 +540,7 @@ function RaccoonApp() {
             className={`folder-btn ${selectedFolder === null ? "active" : ""}`}
             onClick={() => {
               setSelectedFolder(null);
-              setMobileView("list");
+              goBackToList();
             }}
           >
             <PawIcon /> All Notes
@@ -522,7 +553,7 @@ function RaccoonApp() {
                 style={{ flex: 1 }}
                 onClick={() => {
                   setSelectedFolder(f.id);
-                  setMobileView("list");
+                  goBackToList();
                 }}
               >
                 {f.name}
@@ -605,7 +636,7 @@ function RaccoonApp() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 0" }}>
           <button
             className="toolbar-btn mobile-only"
-            onClick={() => setMobileView("folders")}
+            onClick={() => goToView("folders")}
           >
             ☰
           </button>
@@ -634,7 +665,7 @@ function RaccoonApp() {
               className={`note-card ${selectedNoteId === n.id ? "active" : ""}`}
               onClick={() => {
                 setSelectedNoteId(n.id);
-                setMobileView("editor");
+                goToView("editor");
               }}
             >
               <div className="note-title">
@@ -683,7 +714,7 @@ function RaccoonApp() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px 8px", flexWrap: "wrap", rowGap: 8 }}>
               <button
                 className="toolbar-btn"
-                onClick={() => setMobileView("list")}
+                onClick={goBackToList}
               >
                 ← Back
               </button>
